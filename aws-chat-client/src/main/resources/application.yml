@@ -1,0 +1,6 @@
+aws:
+  server:
+    url: http://localhost:5000
+  chat:
+    message:
+      scheduled-interval: 1000
