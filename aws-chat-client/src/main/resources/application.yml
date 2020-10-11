@@ -4,3 +4,4 @@ aws:
   chat:
     message:
       scheduled-interval: 1000
+      stop-after: 3000

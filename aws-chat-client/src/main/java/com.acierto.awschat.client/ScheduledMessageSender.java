@@ -3,18 +3,21 @@ package com.acierto.awschat.client;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.scheduling.support.ScheduledMethodRunnable;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ResourceUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
+import java.util.concurrent.ScheduledFuture;
 
 @Component
 public class ScheduledMessageSender {
@@ -45,6 +48,20 @@ public class ScheduledMessageSender {
             repeatableConnect(userName, MAX_RECONNECT_ATTEMPTS);
         }
         sendMessage(token, getRandomMessage());
+    }
+
+    @Scheduled(initialDelayString = "${aws.chat.message.stop-after}", fixedDelay = Long.MAX_VALUE)
+    public void stopMessaging() {
+        scheduledTasks.forEach((k, v) -> {
+            if (k instanceof ScheduledMessageSender) {
+                v.cancel(false);
+            }
+        });
+    }
+
+    @Bean
+    public TaskScheduler poolScheduler() {
+        return new CustomTaskScheduler();
     }
 
     private String getRandomUserName() {
@@ -92,5 +109,19 @@ public class ScheduledMessageSender {
         String url = String.format("%s/send?token=%s", serverUrl, token);
         ResponseEntity<String> response = restTemplate.postForEntity(url, message, String.class);
         log.info("[{}] Received response {}", response.getStatusCode(), response.getBody());
+    }
+
+    private final Map<Object, ScheduledFuture<?>> scheduledTasks = new IdentityHashMap<>();
+
+    private class CustomTaskScheduler extends ThreadPoolTaskScheduler {
+        @Override
+        public ScheduledFuture<?> scheduleAtFixedRate(Runnable task, long period) {
+            ScheduledFuture<?> future = super.scheduleAtFixedRate(task, period);
+
+            ScheduledMethodRunnable runnable = (ScheduledMethodRunnable) task;
+            scheduledTasks.put(runnable.getTarget(), future);
+
+            return future;
+        }
     }
 }
