@@ -1,8 +1,11 @@
 package com.acierto.awschat.server;
 
+import com.acierto.awschat.server.storage.Message;
+import com.acierto.awschat.server.storage.MessageStorage;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -11,10 +14,17 @@ import java.util.concurrent.ConcurrentMap;
 @RestController
 public class ChatServerController {
 
+    private final MessageStorage messageStorage;
+
     private final ConcurrentMap<String, String> userToSession = new ConcurrentHashMap<>();
     private final ConcurrentMap<String, String> sessionToUser = new ConcurrentHashMap<>();
 
-    private final ConcurrentMap<String, List<String>> messages = new ConcurrentHashMap<>();
+    public ChatServerController(
+            @Value("${aws.server.dynamodb.endpoint}") String dynamoDbEndpoint,
+            @Value("${aws.server.signingRegion}") String signingRegion) {
+        messageStorage = new MessageStorage(dynamoDbEndpoint, signingRegion);
+        messageStorage.createTable();
+    }
 
     @GetMapping("/connect")
     public String connect(@RequestParam(value = "name") String name) {
@@ -34,17 +44,13 @@ public class ChatServerController {
             throw new RuntimeException(String.format("User with provided token %s has not found", token));
         }
 
-        messages.computeIfAbsent(user, k -> new LinkedList<>()).add(message);
+        messageStorage.addMessage(new Message(user, message));
         return "SENT";
     }
 
     @GetMapping("/show")
-    public String showAllMessage() {
-        StringBuilder sb = new StringBuilder();
-        messages.forEach((user, messages) -> {
-            sb.append(String.format("%s=", user)).append(messages).append(";");
-        });
-        return sb.toString();
+    public ResponseEntity<List<Message>> showAllMessage() {
+        return ResponseEntity.ok(messageStorage.readMessages());
     }
 
     @GetMapping("/disconnect")

@@ -1,18 +1,39 @@
 plugins {
     id 'org.springframework.boot' version '2.3.2.RELEASE'
     id 'io.spring.dependency-management' version '1.0.8.RELEASE'
+    id 'com.avast.gradle.docker-compose' version "0.13.4"
     id 'java'
 }
 
 repositories {
     mavenCentral()
+    maven {
+        url 'http://dynamodb-local.s3-website-us-west-2.amazonaws.com/release'
+    }
+}
+
+configurations {
+    dynamodb
 }
 
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'com.amazonaws:aws-java-sdk-core:1.11.880'
+    implementation 'com.amazonaws:aws-java-sdk-dynamodb:1.11.880'
+    implementation 'com.github.derjust:spring-data-dynamodb:5.1.0'
+    implementation 'com.amazonaws:DynamoDBLocal:1.13.2'
     testImplementation('org.springframework.boot:spring-boot-starter-test') {
         exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
+    dynamodb fileTree(dir: 'lib', include: ["*.dylib", "*.so", "*.dll"])
+    dynamodb 'com.amazonaws:DynamoDBLocal:1.13.2'
+}
+
+dockerCompose.dependsOn(composeDownForced)
+dockerCompose.isRequiredBy(bootRun)
+
+dockerCompose {
+    useComposeFiles = ['docker-compose.yml']
 }
 
 test {

@@ -1,2 +1,9 @@
+aws:
+  server:
+    dynamodb:
+      endpoint:
+        http://localhost:8000
+    signingRegion:
+      eu-west-1
 server:
   port: 5000
