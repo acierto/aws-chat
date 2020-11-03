@@ -54,7 +54,9 @@ public class ScheduledMessageSender {
     public void stopMessaging() {
         scheduledTasks.forEach((k, v) -> {
             if (k instanceof ScheduledMessageSender) {
+                disconnect(token);
                 v.cancel(false);
+                System.exit(0);
             }
         });
     }
@@ -84,7 +86,7 @@ public class ScheduledMessageSender {
 
     private void repeatableConnect(String name, int maxAttempts) {
         int attempt = 0;
-        ResponseEntity<String> connectResponse = null;
+        ResponseEntity<String> connectResponse;
         while (attempt < maxAttempts) {
             connectResponse = connect(name);
             if (connectResponse.getStatusCode() != HttpStatus.OK) {
@@ -108,6 +110,12 @@ public class ScheduledMessageSender {
     private void sendMessage(String token, String message) {
         String url = String.format("%s/send?token=%s", serverUrl, token);
         ResponseEntity<String> response = restTemplate.postForEntity(url, message, String.class);
+        log.info("[{}] Received response {}", response.getStatusCode(), response.getBody());
+    }
+
+    private void disconnect(String token) {
+        String url = String.format("%s/disconnect?token=%s", serverUrl, token);
+        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
         log.info("[{}] Received response {}", response.getStatusCode(), response.getBody());
     }
 
